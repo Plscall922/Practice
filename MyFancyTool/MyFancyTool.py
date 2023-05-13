@@ -2,6 +2,7 @@ from PyQt5 import QtCore, QtWidgets
 
 
 class Worker(QtCore.QObject):
+    progress_changed = QtCore.pyqtSignal(int)
     finished = QtCore.pyqtSignal()
 
     def __init__(self, parent=None):
@@ -12,7 +13,7 @@ class Worker(QtCore.QObject):
     def do_work(self):
         while self.progress < 100:
             self.progress += 1
-            print(self.progress)
+            self.progress_changed.emit(self.progress)
             QtCore.QThread.msleep(100)
         self.finished.emit()
 
@@ -29,7 +30,7 @@ class MyWindow(QtWidgets.QWidget):
 
         # cancel button
         self.cancel_button = QtWidgets.QPushButton('Cancel Boop', self)
-        self.cancel_button.clicked.connect(self.cancel_action)
+        self.cancel_button.clicked.connect(QtCore.QCoreApplication.instance().quit)
 
         # create a progress bar
         self.progress_bar = QtWidgets.QProgressBar(self)
@@ -63,6 +64,7 @@ class MyWindow(QtWidgets.QWidget):
     def start_action(self):
         if not self.worker:
             self.worker = Worker()
+            self.worker.progress_changed.connect(self.update_progress)
             self.worker.finished.connect(self.action_finished)
 
             thread = QtCore.QThread(self)
@@ -75,12 +77,15 @@ class MyWindow(QtWidgets.QWidget):
             thread.start()
 
     def cancel_action(self):
-
         if self.worker:
             self.worker.finished.disconnect(self.action_finished)
             self.worker.finished.emit()
             self.worker = None
             self.start_button.setEnabled(True)
+
+    @QtCore.pyqtSlot(int)
+    def update_progress(self, value):
+        self.progress_bar.setValue(value)
 
     def action_finished(self):
         print("You are Booped")
